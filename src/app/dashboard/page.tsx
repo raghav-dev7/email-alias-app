@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false)
   const [aliasName, setAliasName] = useState("")
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     if (session) {
@@ -28,24 +29,44 @@ export default function DashboardPage() {
   async function fetchAliases() {
     const res = await fetch("/api/create-alias")
     const data = await res.json()
-    setAliases(data)
+
+    if (Array.isArray(data)) {
+      setAliases(data)
+      return
+    }
+
+    setAliases(data.aliases || [])
   }
 
   async function createAlias() {
-    if (!aliasName) return
+    if (!aliasName.trim()) return
+
     setLoading(true)
-    await fetch("/api/create-alias", {
+    setError("")
+
+    const res = await fetch("/api/create-alias", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: aliasName }),
+      body: JSON.stringify({ name: aliasName.trim() }),
     })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError(data.error || "Something went wrong")
+      setLoading(false)
+      return
+    }
+
     setAliasName("")
     setShowForm(false)
     setLoading(false)
     fetchAliases()
   }
 
-  if (status === "loading") return <p className="p-8">Loading...</p>
+  if (status === "loading") {
+    return <p className="p-8">Loading...</p>
+  }
 
   if (!session) {
     signIn()
@@ -61,6 +82,7 @@ export default function DashboardPage() {
 
       <div className="mb-6 flex justify-between items-center">
         <h2 className="text-xl font-semibold">Your Aliases</h2>
+
         <button
           onClick={() => setShowForm(true)}
           className="bg-black text-white px-4 py-2 rounded-lg text-sm"
@@ -72,31 +94,40 @@ export default function DashboardPage() {
       {showForm && (
         <div className="border border-gray-200 rounded-lg p-4 mb-6">
           <p className="text-sm font-medium mb-2">Create a new alias</p>
+
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="e.g. shopping"
               value={aliasName}
               onChange={(e) => setAliasName(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 text-sm flex-1"
+              className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 bg-white text-black placeholder-gray-500"
             />
+
             <span className="text-gray-500 text-sm self-center">
               @slayer.world
             </span>
+
             <button
               onClick={createAlias}
               disabled={loading}
-              className="bg-black text-white px-4 py-2 rounded text-sm"
+              className="bg-black text-white px-4 py-2 rounded text-sm disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create"}
             </button>
+
             <button
-              onClick={() => setShowForm(false)}
+              onClick={() => {
+                setShowForm(false)
+                setError("")
+              }}
               className="text-gray-500 text-sm px-2"
             >
               Cancel
             </button>
           </div>
+
+          {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
         </div>
       )}
 
@@ -118,6 +149,7 @@ export default function DashboardPage() {
                 <p className="font-medium">{alias.aliasEmail}</p>
                 <p className="text-sm text-gray-500">→ {alias.realEmail}</p>
               </div>
+
               <span
                 className={`text-xs px-2 py-1 rounded-full ${
                   alias.enabled
